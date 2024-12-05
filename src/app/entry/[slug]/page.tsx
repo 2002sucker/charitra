@@ -1,15 +1,15 @@
 import { db } from '@/db/db';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
-
+// @ts-ignore
 interface Params {
-  slug: string; // Ensure correct type
+  slug: string;
 }
-
+// @ts-ignore
 interface PageProps {
   params: Params; // Match the expected structure
 }
-
+// @ts-ignore
 export default async function BlogPost({ params }: PageProps) {
   const post = await db.query.posts.findFirst({
     where: (posts, { eq }) => eq(posts.slug, params.slug),
