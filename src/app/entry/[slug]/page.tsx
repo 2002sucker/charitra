@@ -2,10 +2,12 @@ import { db } from '@/db/db';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
 
+interface Params {
+  slug: string; // Ensure correct type
+}
+
 interface PageProps {
-  params: {
-    slug: any;
-  };
+  params: Params; // Match the expected structure
 }
 
 export default async function BlogPost({ params }: PageProps) {
@@ -27,8 +29,7 @@ export default async function BlogPost({ params }: PageProps) {
       </header>
       <div
         className="prose prose-invert max-w-none"
-        //@ts-ignore
-        dangerouslySetInnerHTML={{ __html: post.content }}
+        dangerouslySetInnerHTML={{ __html: post.content as string }}
       />
     </article>
   );
