@@ -57,19 +57,20 @@ export default function Editor({ initialValue, onChange }: EditorProps) {
   const highlightCodeblocks = (content: string) => {
     const doc = new DOMParser().parseFromString(content, 'text/html');
     doc.querySelectorAll('pre code').forEach((el) => {
+      //@ts-ignore
       hljs.highlightElement(el);
     });
     return new XMLSerializer().serializeToString(doc);
   };
 
   return (
-    <div className="relative w-full max-w-screen-lg">
+    <div className=" w-full max-w-screen-lg">
       <EditorRoot>
         <EditorContent
           immediatelyRender={false}
           initialContent={initialValue}
           extensions={extensions}
-          className="min-h-96 rounded-xl border p-4 text-white"
+          className="min-h-96 rounded-xl  p-4 text-white"
           editorProps={{
             handleDOMEvents: {
               keydown: (_view, event) => handleCommandNavigation(event),
@@ -80,7 +81,7 @@ export default function Editor({ initialValue, onChange }: EditorProps) {
               handleImageDrop(view, event, moved, uploadFn),
             attributes: {
               class:
-                'prose dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full',
+                'prose-invert prose prose-headings:font-title font-default focus:outline-none max-w-full',
             },
           }}
           onUpdate={({ editor }) => {
