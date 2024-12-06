@@ -1,3 +1,4 @@
+import { Toaster } from '@/components/ui/sonner';
 import type { Metadata } from 'next';
 import { Roboto_Mono } from 'next/font/google';
 import './globals.css';
@@ -24,6 +25,7 @@ export default function RootLayout({
         className={`${robotoMono.className} ${robotoMono.variable} antialiased`}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );
