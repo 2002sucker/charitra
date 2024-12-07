@@ -22,7 +22,7 @@ export default async function Blogs() {
   return (
     <section className="py-24  text-white">
       <div className="container px-8">
-        <h1 className="text-3xl font-bold font-mono mb-8">Blogs</h1>
+        <h1 className="text-3xl font-bold font-mono mb-8">Entries</h1>
         <ul className="space-y-8">
           {posts.map((post) => (
             <li key={post.id} className="pb-8 border-b border-gray-700">

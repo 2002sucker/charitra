@@ -1,3 +1,4 @@
+import EntryOptions from '@/components/entry-option';
 import { db } from '@/db/db';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
@@ -38,6 +39,14 @@ export default async function BlogPost({ params }: PageProps) {
             Published on {format(new Date(post.createdAt), 'MMMM dd, yyyy')}
           </p>
         </div>
+
+        <EntryOptions
+          slug={post.slug}
+          //@ts-ignore
+          title={post.title}
+          //@ts-ignore
+          content={post.content}
+        />
       </header>
 
       <div
