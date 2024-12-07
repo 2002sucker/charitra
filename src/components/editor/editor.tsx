@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-
+import { Separator } from '@/components/ui/separator';
 import {
   EditorCommand,
   EditorCommandEmpty,
@@ -11,66 +10,54 @@ import {
   EditorRoot,
   type JSONContent,
 } from 'novel';
-
 import { ImageResizer, handleCommandNavigation } from 'novel/extensions';
 import { handleImageDrop, handleImagePaste } from 'novel/plugins';
-
-import EditorMenu from '@/components/editor/editor-menu';
-import { defaultExtensions } from '@/components/editor/extensions';
-import { uploadFn } from '@/components/editor/image-upload';
-import { ColorSelector } from '@/components/editor/selectors/color-selector';
-import { LinkSelector } from '@/components/editor/selectors/link-selector';
-import { MathSelector } from '@/components/editor/selectors/math-selector';
-import { NodeSelector } from '@/components/editor/selectors/node-selector';
-import { TextButtons } from '@/components/editor/selectors/text-button';
-import {
-  slashCommand,
-  suggestionItems,
-} from '@/components/editor/slash-commands';
-import hljs from 'highlight.js';
-
-import { Separator } from '@/components/ui/separator';
+import { useEffect, useState } from 'react';
+import EditorMenu from './editor-menu';
+import { defaultExtensions } from './extensions';
+import { uploadFn } from './image-upload';
+import { ColorSelector } from './selectors/color-selector';
+import { LinkSelector } from './selectors/link-selector';
+import { MathSelector } from './selectors/math-selector';
+import { NodeSelector } from './selectors/node-selector';
+import { TextButtons } from './selectors/text-button';
+import { slashCommand, suggestionItems } from './slash-commands';
 
 const extensions = [...defaultExtensions, slashCommand];
 
-export const defaultEditorContent = {
-  type: 'doc',
-  content: [
-    {
-      type: 'paragraph',
-      content: [],
-    },
-  ],
-};
-
-interface EditorProps {
-  initialValue?: JSONContent;
-  onChange: (content: string) => void;
+interface NovelEditorProps {
+  initialValue: JSONContent;
+  onChange: (htmlContent: string, jsonContent: JSONContent) => void;
 }
 
-export default function Editor({ initialValue, onChange }: EditorProps) {
+export default function NovelEditor({
+  initialValue,
+  onChange,
+}: NovelEditorProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [openLink, setOpenLink] = useState(false);
   const [openAI, setOpenAI] = useState(false);
 
-  const highlightCodeblocks = (content: string) => {
-    const doc = new DOMParser().parseFromString(content, 'text/html');
-    doc.querySelectorAll('pre code').forEach((el) => {
-      //@ts-ignore
-      hljs.highlightElement(el);
-    });
-    return new XMLSerializer().serializeToString(doc);
-  };
+  useEffect(() => {
+    // Only run on client-side to prevent hydration issues
+    setIsMounted(true);
+  }, []);
+
+  // Skip rendering until mounted to prevent hydration errors
+  if (!isMounted) {
+    return null;
+  }
 
   return (
-    <div className=" w-full max-w-screen-lg">
+    <div className="w-full max-w-screen-lg">
       <EditorRoot>
         <EditorContent
-          immediatelyRender={false}
+          immediatelyRender={true}
           initialContent={initialValue}
           extensions={extensions}
-          className="min-h-96 rounded-xl  p-4 text-white"
+          className="min-h-96 rounded-xl p-4 text-white"
           editorProps={{
             handleDOMEvents: {
               keydown: (_view, event) => handleCommandNavigation(event),
@@ -85,7 +72,9 @@ export default function Editor({ initialValue, onChange }: EditorProps) {
             },
           }}
           onUpdate={({ editor }) => {
-            onChange(editor.getHTML());
+            const html = editor.getHTML();
+            const json = editor.getJSON();
+            onChange(html, json);
           }}
           slotAfter={<ImageResizer />}
         >
@@ -116,16 +105,12 @@ export default function Editor({ initialValue, onChange }: EditorProps) {
           <EditorMenu open={openAI} onOpenChange={setOpenAI}>
             <Separator orientation="vertical" />
             <NodeSelector open={openNode} onOpenChange={setOpenNode} />
-
             <Separator orientation="vertical" />
             <LinkSelector open={openLink} onOpenChange={setOpenLink} />
-
             <Separator orientation="vertical" />
             <MathSelector />
-
             <Separator orientation="vertical" />
             <TextButtons />
-
             <Separator orientation="vertical" />
             <ColorSelector open={openColor} onOpenChange={setOpenColor} />
           </EditorMenu>

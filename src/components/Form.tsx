@@ -10,18 +10,31 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
+import { JSONContent } from 'novel';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import Calendar from './Calendar';
-import Editor from './editor/editor';
+import NovelEditor from './editor/editor';
 
 interface BlogEntry {
   date: string;
   title: string;
   content: string;
+  editorContent: JSONContent;
 }
 
-const defaultEditorContent = {
+interface DraftContent {
+  title: string;
+  date: string | null;
+  content: string;
+  editorContent: JSONContent;
+  slug: string;
+}
+
+const DRAFT_STORAGE_KEY = 'blog-draft-content';
+const ENTRIES_STORAGE_KEY = 'blog-entries';
+
+const defaultEditorContent: JSONContent = {
   type: 'doc',
   content: [
     {
@@ -31,14 +44,71 @@ const defaultEditorContent = {
   ],
 };
 
-export default function ContentForm() {
+export default function BlogEditor() {
+  const [isMounted, setIsMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [content, setContent] = useState<string>('');
+  const [editorContent, setEditorContent] =
+    useState<JSONContent>(defaultEditorContent);
   const [pending, setPending] = useState(false);
   const [blogEntries, setBlogEntries] = useState<BlogEntry[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    // Only run on client-side
+    if (typeof window !== 'undefined') {
+      // Retrieve draft content
+      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      const savedEntries = localStorage.getItem(ENTRIES_STORAGE_KEY);
+
+      if (savedDraft) {
+        try {
+          const parsedDraft = JSON.parse(savedDraft);
+          setTitle(parsedDraft.title || '');
+          setContent(parsedDraft.content || '');
+          setEditorContent(parsedDraft.editorContent || defaultEditorContent);
+          setSlug(parsedDraft.slug || '');
+
+          if (parsedDraft.date) {
+            setSelectedDate(new Date(parsedDraft.date));
+          }
+        } catch (error) {
+          console.error('Error parsing saved draft:', error);
+        }
+      }
+
+      if (savedEntries) {
+        try {
+          setBlogEntries(JSON.parse(savedEntries));
+        } catch (error) {
+          console.error('Error parsing saved entries:', error);
+        }
+      }
+
+      setIsMounted(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isMounted && typeof window !== 'undefined') {
+      const draftContent: DraftContent = {
+        title,
+        date: selectedDate?.toISOString() || null,
+        content,
+        editorContent,
+        slug,
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftContent));
+    }
+  }, [title, selectedDate, content, editorContent, slug, isMounted]);
+
+  useEffect(() => {
+    if (isMounted && typeof window !== 'undefined') {
+      localStorage.setItem(ENTRIES_STORAGE_KEY, JSON.stringify(blogEntries));
+    }
+  }, [blogEntries, isMounted]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -47,6 +117,11 @@ export default function ContentForm() {
     }
   }, [selectedDate]);
 
+  // Skip rendering until mounted to prevent hydration errors
+  if (!isMounted) {
+    return null;
+  }
+
   const formattedDate = selectedDate
     ? format(selectedDate, 'MMMM dd, yyyy')
     : 'Select Date';
@@ -54,6 +129,24 @@ export default function ContentForm() {
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date || null);
     setIsDialogOpen(false);
+  };
+
+  const clearDraft = () => {
+    setTitle('');
+    setContent('');
+    setEditorContent(defaultEditorContent);
+    setSelectedDate(null);
+    setSlug('');
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    toast.success('Draft cleared!');
+  };
+
+  const handleEditorChange = (
+    htmlContent: string,
+    jsonContent: JSONContent
+  ) => {
+    setContent(htmlContent);
+    setEditorContent(jsonContent);
   };
 
   async function handleSubmit() {
@@ -67,35 +160,41 @@ export default function ContentForm() {
     }
     if (!content) {
       toast.error('Please enter content for your blog.');
+      return;
     }
 
     const formattedDateString = format(selectedDate, 'yyyy-MM-dd');
-
     setPending(true);
 
-    const result = await createBlogAction({
-      //@ts-ignore
-      date: formattedDateString,
-      title,
-      slug,
-      content,
-    });
+    try {
+      const result = await createBlogAction({
+        //@ts-ignore
+        date: formattedDateString,
+        title,
+        slug,
+        content,
+      });
 
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success('Blog entry created successfully!');
-      setBlogEntries([
-        ...blogEntries,
-        { date: formattedDateString, title, content },
-      ]);
-      setContent('');
-      setTitle('');
-      setSelectedDate(null);
-      setSlug('');
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success('Blog entry created successfully!');
+        setBlogEntries((prev) => [
+          ...prev,
+          {
+            date: formattedDateString,
+            title,
+            content,
+            editorContent,
+          },
+        ]);
+        clearDraft();
+      }
+    } catch (error) {
+      toast.error('Failed to create blog entry. Please try again.');
+    } finally {
+      setPending(false);
     }
-
-    setPending(false);
   }
 
   const isDateWithEntry = (date: Date) => {
@@ -110,9 +209,14 @@ export default function ContentForm() {
         <h1 className="text-3xl font-extrabold tracking-tight">
           Create Blog Entry
         </h1>
-        <Button onClick={handleSubmit} disabled={pending}>
-          {pending ? 'Submitting...' : 'Create Entry'}
-        </Button>
+        <div className="space-x-2">
+          <Button onClick={clearDraft} variant="outline">
+            Clear Draft
+          </Button>
+          <Button onClick={handleSubmit} disabled={pending}>
+            {pending ? 'Submitting...' : 'Create Entry'}
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-6">
@@ -144,7 +248,10 @@ export default function ContentForm() {
       </div>
 
       <div className="rounded-lg overflow-hidden">
-        <Editor initialValue={defaultEditorContent} onChange={setContent} />
+        <NovelEditor
+          initialValue={editorContent}
+          onChange={handleEditorChange}
+        />
       </div>
 
       {blogEntries.length > 0 && (
@@ -157,7 +264,10 @@ export default function ContentForm() {
                   {format(new Date(entry.date), 'MMMM dd, yyyy')} -{' '}
                   {entry.title}:
                 </span>
-                <p className="mt-2">{entry.content}</p>
+                <div
+                  className="mt-2 prose prose-invert"
+                  dangerouslySetInnerHTML={{ __html: entry.content }}
+                />
               </li>
             ))}
           </ul>
